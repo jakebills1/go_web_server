@@ -5,13 +5,29 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 )
 
 var (
-	logger = log.New(os.Stdout, "logger: ", log.Lshortfile)
+	logger    = log.New(os.Stdout, "logger: ", log.Lshortfile)
+	connLimit = 5
+	conns     = make([]net.Conn, connLimit)
 )
 
+func handleInterrupt(c chan os.Signal) {
+	<-c
+	// close connections ?
+	for _, conn := range conns {
+		if conn != nil {
+			conn.Close()
+		}
+	}
+	os.Exit(1)
+}
 func main() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go handleInterrupt(c)
 	ln, err := net.Listen("tcp", ":2000")
 
 	if err != nil {
@@ -25,6 +41,7 @@ func main() {
 			logger.Fatalf("Accept(): %v", err)
 		}
 		logger.Println("accepted new connection")
+		conns = append(conns, conn)
 		go handleConnection(conn)
 	}
 }
