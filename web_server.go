@@ -9,19 +9,12 @@ import (
 )
 
 var (
-	logger    = log.New(os.Stdout, "logger: ", log.Lshortfile)
-	connLimit = 5
-	conns     = make([]net.Conn, connLimit)
+	logger = log.New(os.Stdout, "logger: ", log.Lshortfile)
 )
 
 func handleInterrupt(c chan os.Signal) {
 	<-c
-	// close connections ?
-	for _, conn := range conns {
-		if conn != nil {
-			conn.Close()
-		}
-	}
+	logger.Println("exiting due to sigint")
 	os.Exit(1)
 }
 func main() {
@@ -41,12 +34,12 @@ func main() {
 			logger.Fatalf("Accept(): %v", err)
 		}
 		logger.Println("accepted new connection")
-		conns = append(conns, conn)
 		go handleConnection(conn)
 	}
 }
 
 func handleConnection(conn net.Conn) {
+	defer conn.Close()
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
 		logger.Println("got message from conn:", scanner.Text())
@@ -56,8 +49,5 @@ func handleConnection(conn net.Conn) {
 		}
 		logger.Println("wrote", bytesWritten, "bytes to conn")
 	}
-	err := conn.Close()
-	if err != nil {
-		logger.Fatal("Close():", err)
-	}
+	logger.Println("closing connection")
 }
